@@ -1,0 +1,25 @@
+[tool.ruff]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+select = ["E", "F"]
+ignore = []
+line-length = 100
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.isort]
+combine_as_imports = true
+line_length = 100
+profile = "black"
+
+[tool.pytest.ini_options]
+base_url = "https://development.clade-sphere.io/"
+addopts = '''
+-vv
+--order-dependencies
+--doctest-modules
+--alluredir=./test-reports/allure-report
+--html-report=./test-reports/html-report
+--title="QA Sphere Full Regression Report"
+'''

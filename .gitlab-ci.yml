@@ -1,0 +1,89 @@
+workflow:
+  rules:
+    # Build merge request events
+    - if: "$CI_PIPELINE_SOURCE == 'merge_request_event'"
+    # Prevent duplicate pipelines on pushes to branches with open merge requests
+    - if: "$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS"
+      when: never
+    # Always build the default branch
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+    # Don't build pushes to branches starting with `renovate/`
+    - if: $CI_COMMIT_BRANCH =~ /^renovate\/.+/
+      when: never
+    # Build any other branch or tag
+    - if: "$CI_COMMIT_BRANCH || $CI_COMMIT_TAG"
+
+include:
+  - project: mbio/gitlab-utils
+    file: /ci/python/gitlab-ci.yml
+    ref: main
+
+variables:
+  PYTHON_LINTER_VERSION: "3.8"
+  DEPLOY_ENVIRONMENT:
+    value: "development"
+    options:
+      - "staging"
+      - "development"
+
+stages:
+  - linter
+  - test
+
+full_regression:
+  stage: test
+  image: mcr.microsoft.com/playwright/python:focal
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m pip install --require-hashes -r requirements/tests.txt
+    - python -m pip install .
+    - playwright install
+  script:
+    - pytest
+      --env $DEPLOY_ENVIRONMENT
+  artifacts:
+    paths:
+      - test-results
+      - test-reports
+    when: on_failure
+  when: manual
+
+
+fail_fast:
+  stage: test
+  image: mcr.microsoft.com/playwright/python:focal
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m pip install --require-hashes -r requirements/tests.txt
+    - python -m pip install .
+    - playwright install
+  script:
+    - pytest
+      -x
+      --numprocesses 1
+      --env $DEPLOY_ENVIRONMENT
+      -k "test_sort_active_methods_list_using_method_status"
+
+  artifacts:
+    paths:
+      - test-results
+    when: on_failure
+  when: manual
+
+
+consistency_tests:
+  stage: test
+  image: mcr.microsoft.com/playwright/python:focal
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m pip install --require-hashes -r requirements/tests.txt
+    - python -m pip install .
+    - playwright install
+  script:
+    - pytest -m "DosimConsistency or DosimPersistency or QAScanConsistency"
+
+  artifacts:
+    paths:
+      - test-results
+    when: on_failure
+  when: manual
